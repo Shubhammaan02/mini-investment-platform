@@ -1,0 +1,16 @@
+
+Input {
+    color: black;
+}
+
+.btn-bg-color {
+    background-color: cadetblue;
+}
+
+.strength-pass-bg {
+    background-color: beige;
+}
+
+select, option {
+    color: gray;
+}
