@@ -1,13 +1,41 @@
 // frontend/src/services/api.ts
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://mini-investment-platform.onrender.com/api';
+const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    // If we're in the browser, check the current origin
+    const isProduction = window.location.hostname.includes('onrender.com');
+    
+    if (isProduction) {
+      // In production, use relative URL since frontend and backend are same origin
+      return '/api';
+    }
+
+    // In local development, use the full URL
+    if (process.env.NEXT_PUBLIC_API_URL) {
+      return process.env.NEXT_PUBLIC_API_URL;
+    }
+  }
+
+  // Default fallback for SSR or local development
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+console.log('API Base URL:', API_BASE_URL);
+
+// const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://mini-investment-platform.onrender.com/api';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  // Add timeout to prevent hanging requests
+  timeout: 30000,
+  // Important for cookies/auth to work
+  withCredentials: true,
 });
 
 // Request interceptor to add auth token
@@ -18,6 +46,8 @@ api.interceptors.request.use(
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
+      // Add request ID for debugging
+      config.headers['X-Request-ID'] = Date.now();
     }
     return config;
   },
@@ -28,19 +58,59 @@ api.interceptors.request.use(
 
 // Response interceptor to handle errors
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log(`API Success: ${response.config.method?.toUpperCase()} ${response.config.url}`);
+    return response;
+  },
   (error) => {
+    console.error('API Error:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      message: error.message,
+    });
+
     if (error.response?.status === 401) {
       // Token expired or invalid
       if (typeof window !== 'undefined') {
         localStorage.removeItem('authToken');
         localStorage.removeItem('user');
-        window.location.href = '/login';
+        // Redirect to login with a return URL
+        const currentPath = window.location.pathname;
+        if (currentPath !== '/login' && currentPath !== '/signup') {
+          window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
+        }
       }
     }
+
+    // Handle network errors
+    if (!error.response) {
+      console.error('Network error - server may be down');
+      if (typeof window !== 'undefined') {
+        // You could show a notification here
+        console.warn('Cannot connect to server. Please check your internet connection.');
+      }
+    }
+    
     return Promise.reject(error);
   }
 );
+
+// Helper function to test API connection
+export const testApiConnection = async () => {
+  try {
+    const response = await api.get('/health');
+    return {
+      connected: true,
+      data: response.data,
+    };
+  } catch (error) {
+    return {
+      connected: false,
+      error: error.message,
+    };
+  }
+};
 
 // Auth API
 export const authAPI = {
@@ -64,6 +134,9 @@ export const authAPI = {
   getProfile: () => api.get('/auth/profile'),
   
   generatePassword: () => api.get('/auth/generate-password'),
+
+  // Add test endpoint
+  testPost: (data: any) => api.post('/test-post', data),
 };
 
 // Products API
@@ -117,3 +190,6 @@ export const adminAPI = {
 export const healthAPI = {
   check: () => api.get('/health'),
 };
+
+// Export a default instance
+export default api;
