@@ -38,7 +38,7 @@ const corsOptions = {
 
     const allowedOrigins = [
       process.env.FRONTEND_URL || 'http://localhost:3000',
-      'https://mini-investment-platform.onrender.com',
+      'https://investment-platform-frontend-live.onrender.com',
       'http://localhost:3000'
     ];
 
@@ -420,7 +420,7 @@ const startServer = async () => {
       // }
 
       if (process.env.NODE_ENV === 'production') {
-        console.log(`🌍 Production URL: https://mini-investment-platform.onrender.com`);
+        console.log(`🌍 Production URL: https://investment-platform-frontend-live.onrender.com`);
       }
 
       console.log('\n🔑 Available Auth Endpoints:');
